@@ -20,10 +20,14 @@ async function main() {
   assert.equal(login.status, 200, `Login failed: ${await login.text()}`);
 
   const rawCookies = login.headers.getSetCookie();
-  const cookies = rawCookies.map((item) => item.split(';')[0]).join('; ');
-  const tokenCookie = rawCookies.find((item) => item.startsWith('csrfToken='));
-  assert.ok(tokenCookie, 'Login did not return CSRF token');
-  const csrfToken = decodeURIComponent(tokenCookie.split(';')[0].slice('csrfToken='.length));
+  const activeCookies = new Map();
+  for (const item of rawCookies) {
+    const [name, value] = item.split(';')[0].split('=', 2);
+    activeCookies.set(name, value);
+  }
+  const cookies = [...activeCookies].map(([name, value]) => `${name}=${value}`).join('; ');
+  assert.ok(activeCookies.get('csrfToken'), 'Login did not return CSRF token');
+  const csrfToken = decodeURIComponent(activeCookies.get('csrfToken'));
 
   const call = async (method, path, body) => {
     const response = await fetch(`${baseUrl}${path}`, {
